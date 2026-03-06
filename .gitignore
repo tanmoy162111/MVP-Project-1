@@ -3,6 +3,8 @@
 /public/storage
 /storage/*.key
 /vendor
+/bootstrap/cache/*
+!/bootstrap/cache/.gitkeep
 .env
 .env.backup
 .env.production
@@ -16,3 +18,5 @@ yarn-error.log
 /.idea
 /.vscode
 *.log
+/database/*.sqlite
+start-server.bat

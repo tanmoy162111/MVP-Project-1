@@ -113,12 +113,12 @@ class RolesAndPermissionsSeeder extends Seeder
         DB::transaction(function () {
             // Create all permissions
             foreach ($this->permissions as $permission) {
-                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'sanctum']);
+                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
             }
 
             // Create roles and assign permissions
             foreach ($this->roles as $roleName => $rolePermissions) {
-                $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'sanctum']);
+                $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
 
                 if ($rolePermissions === '*') {
                     $role->givePermissionTo(Permission::all());
