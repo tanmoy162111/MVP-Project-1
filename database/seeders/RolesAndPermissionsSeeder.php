@@ -111,19 +111,27 @@ class RolesAndPermissionsSeeder extends Seeder
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         DB::transaction(function () {
-            // Create all permissions
-            foreach ($this->permissions as $permission) {
-                Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-            }
+            // Create roles and permissions for both 'web' and 'sanctum' guards
+            $guards = ['web', 'sanctum'];
 
-            // Create roles and assign permissions
-            foreach ($this->roles as $roleName => $rolePermissions) {
-                $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
+            foreach ($guards as $guard) {
+                // Create all permissions
+                foreach ($this->permissions as $permission) {
+                    Permission::firstOrCreate(['name' => $permission, 'guard_name' => $guard]);
+                }
 
-                if ($rolePermissions === '*') {
-                    $role->givePermissionTo(Permission::all());
-                } else {
-                    $role->syncPermissions($rolePermissions);
+                // Create roles and assign permissions
+                foreach ($this->roles as $roleName => $rolePermissions) {
+                    $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => $guard]);
+
+                    if ($rolePermissions === '*') {
+                        $role->givePermissionTo(Permission::where('guard_name', $guard)->get());
+                    } else {
+                        $permissions = Permission::where('guard_name', $guard)
+                            ->whereIn('name', $rolePermissions)
+                            ->get();
+                        $role->syncPermissions($permissions);
+                    }
                 }
             }
 
