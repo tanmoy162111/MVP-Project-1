@@ -61,7 +61,25 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Throwable $e, $request) {
+        $exceptions->render(function (\App\Exceptions\InsufficientStockException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'INSUFFICIENT_STOCK'], 422);
+            }
+        });
+
+        $exceptions->render(function (\App\Exceptions\CreditLimitExceededException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'CREDIT_LIMIT_EXCEEDED'], 422);
+            }
+        });
+
+        $exceptions->render(function (\App\Exceptions\InvalidOrderTransitionException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'INVALID_TRANSITION'], 400);
+            }
+        });
+
+                $exceptions->render(function (\Throwable $e, $request) {
             if ($request->expectsJson() || $request->is('api/*')) {
                 $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
                 return response()->json([

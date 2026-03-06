@@ -66,9 +66,19 @@ Route::prefix('v1')->group(function () {
             Route::delete('/brands/{id}',        [BrandController::class,   'destroy']);
         });
 
-        // Phase 3+ stubs
-        Route::get('/orders',    fn() => response()->json(['message' => 'Phase 3']));
-        Route::post('/orders',   fn() => response()->json(['message' => 'Phase 3']));
+        // Orders
+        Route::get('/orders',                  [\App\Modules\Order\Controllers\OrderController::class, 'index']);
+        Route::post('/orders',                 [\App\Modules\Order\Controllers\OrderController::class, 'store']);
+        Route::get('/orders/{id}',             [\App\Modules\Order\Controllers\OrderController::class, 'show']);
+        Route::post('/orders/{id}/cancel',     [\App\Modules\Order\Controllers\OrderController::class, 'cancel']);
+        Route::get('/orders/{id}/next-statuses',[\App\Modules\Order\Controllers\OrderController::class, 'nextStatuses']);
+
+        // Admin order transitions
+        Route::middleware('role:admin|super_admin|order_manager')->group(function () {
+            Route::post('/admin/orders/{id}/transition', [\App\Modules\Order\Controllers\OrderController::class, 'transition']);
+        });
+
+        // Phase 5+ stubs
         Route::get('/invoices',  fn() => response()->json(['message' => 'Phase 5']));
         Route::get('/reports/sales', fn() => response()->json(['message' => 'Phase 7']));
     });
