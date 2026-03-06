@@ -1,0 +1,128 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  ci:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: electronics_platform_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, zip, mysql, redis, pcov
+          coverage: pcov
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      # ── STEP 1: PHP Lint ────────────────────────────────────────────────────
+      - name: PHP Lint (syntax check)
+        run: find app database routes -name "*.php" -exec php -l {} \; | grep -v "No syntax errors"
+
+      # ── STEP 2: Laravel Pint (code style) ──────────────────────────────────
+      - name: Code style check (Pint)
+        run: vendor/bin/pint --test
+
+      # ── STEP 3: PHPStan static analysis ────────────────────────────────────
+      - name: Static analysis (PHPStan level 6)
+        run: vendor/bin/phpstan analyse --level=6 --memory-limit=512M
+
+      # ── STEP 4: Prepare test environment ───────────────────────────────────
+      - name: Copy .env for testing
+        run: cp .env.example .env.testing
+
+      - name: Set test environment variables
+        run: |
+          echo "APP_ENV=testing" >> .env.testing
+          echo "DB_CONNECTION=mysql" >> .env.testing
+          echo "DB_HOST=127.0.0.1" >> .env.testing
+          echo "DB_PORT=3306" >> .env.testing
+          echo "DB_DATABASE=electronics_platform_test" >> .env.testing
+          echo "DB_USERNAME=root" >> .env.testing
+          echo "DB_PASSWORD=password" >> .env.testing
+          echo "REDIS_HOST=127.0.0.1" >> .env.testing
+          echo "CACHE_STORE=array" >> .env.testing
+          echo "SESSION_DRIVER=array" >> .env.testing
+          echo "QUEUE_CONNECTION=sync" >> .env.testing
+          echo "MAIL_MAILER=array" >> .env.testing
+
+      - name: Generate app key
+        run: php artisan key:generate --env=testing
+
+      # ── STEP 5: Unit tests ──────────────────────────────────────────────────
+      - name: Run unit tests
+        run: php artisan test --testsuite=Unit --env=testing
+
+      # ── STEP 6: Feature tests ───────────────────────────────────────────────
+      - name: Run feature tests
+        run: php artisan test --testsuite=Feature --env=testing
+
+      # ── STEP 7: Coverage report ─────────────────────────────────────────────
+      - name: Generate coverage report
+        run: php artisan test --coverage --min=60 --env=testing
+        continue-on-error: true  # Don't fail build on low coverage in early phases
+
+      # ── STEP 8: Security audit ──────────────────────────────────────────────
+      - name: Composer security audit
+        run: composer audit
+        continue-on-error: true  # Advisory only
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /var/www/electronics-platform
+            git pull origin staging
+            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan queue:restart
+            echo "Staging deployment complete."
