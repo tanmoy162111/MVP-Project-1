@@ -51,7 +51,7 @@ class CustomerTierService
 
         $newCreditLimit = $this->tiers[$newTier]['credit_limit'];
 
-        DB::transaction(function () use ($customer, $newTier, $newCreditLimit) {
+        DB::transaction(function () use ($customer, $newTier, $newCreditLimit, $oldTier) {
             $customer->update([
                 'customer_tier' => $newTier,
                 'credit_limit'  => $newCreditLimit,
@@ -64,8 +64,8 @@ class CustomerTierService
                 'type'        => \App\Modules\CRM\Models\CommunicationLog::TYPE_SYSTEM,
                 'direction'   => \App\Modules\CRM\Models\CommunicationLog::DIRECTION_OUTBOUND,
                 'subject'     => "Tier upgraded to {$newTier}",
-                'body'        => "Customer automatically moved from tier [{$customer->tier}] to [{$newTier}] based on rolling 12-month spend.",
-                'metadata'    => ['old_tier' => $customer->tier, 'new_tier' => $newTier, 'new_credit_limit' => $newCreditLimit],
+                'body'        => "Customer automatically moved from tier [{$oldTier}] to [{$newTier}] based on rolling 12-month spend.",
+                'metadata'    => ['old_tier' => $oldTier, 'new_tier' => $newTier, 'new_credit_limit' => $newCreditLimit],
             ]);
 
             // Fire notification

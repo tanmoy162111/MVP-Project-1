@@ -126,9 +126,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/payouts/{id}/complete',                        [CrmController::class, 'payoutComplete']);
         });
 
-        // ── PHASE 5+ STUBS ────────────────────────────────────────────────────
-        Route::get('/invoices',      fn() => response()->json(['message' => 'Invoice system — Phase 5']));
-        Route::get('/reports/sales', fn() => response()->json(['message' => 'Reporting — Phase 7']));
+        // ── PHASE 5 INVOICE STUB (replaced by real routes above) ─────────────
+        Route::get('/invoices', fn() => response()->json(['message' => 'Invoice system — Phase 5']));
 
         // ── CRM: ACCOUNT ────────────────────────────────────────────────────────
         Route::get('/account/tier',                      [CrmController::class, 'myTier']);
@@ -145,6 +144,25 @@ Route::prefix('v1')->group(function () {
         // ── VENDOR: PAYOUTS ─────────────────────────────────────────────────────
         Route::middleware('role:vendor|admin|super_admin')->group(function () {
             Route::get('/vendor/payouts',                [CrmController::class, 'vendorPayoutHistory']);
+        });
+
+        // ── REPORTING (Phase 7) ───────────────────────────────────────────────
+        // Vendor self-service
+        Route::middleware('role:vendor|admin|super_admin')->group(function () {
+            Route::get('/vendor/reports/performance', [\App\Modules\Reporting\Controllers\ReportingController::class, 'vendorSelfReport']);
+        });
+
+        // Admin reports
+        Route::prefix('admin/reports')->middleware('role:admin|super_admin|finance_manager|pricing_manager')->group(function () {
+            Route::get('/dashboard',     [\App\Modules\Reporting\Controllers\ReportingController::class, 'dashboard']);
+            Route::get('/sales',         [\App\Modules\Reporting\Controllers\ReportingController::class, 'salesSummary']);
+            Route::get('/revenue-trend', [\App\Modules\Reporting\Controllers\ReportingController::class, 'revenueTrend']);
+            Route::get('/vendors',       [\App\Modules\Reporting\Controllers\ReportingController::class, 'vendorPerformance']);
+            Route::get('/products',      [\App\Modules\Reporting\Controllers\ReportingController::class, 'topProducts']);
+            Route::get('/low-stock',     [\App\Modules\Reporting\Controllers\ReportingController::class, 'lowStock']);
+            Route::get('/categories',    [\App\Modules\Reporting\Controllers\ReportingController::class, 'categoryBreakdown']);
+            Route::get('/customers',     [\App\Modules\Reporting\Controllers\ReportingController::class, 'customerAnalytics']);
+            Route::get('/export',        [\App\Modules\Reporting\Controllers\ReportingController::class, 'export']);
         });
     });
 });

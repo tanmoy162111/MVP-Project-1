@@ -262,7 +262,7 @@ class PricingEngine
                 ->when($customer, fn($q2) =>
                     $q2->orWhere(fn($q3) =>
                         $q3->where('scope', PricingRule::SCOPE_TIER)
-                           ->where('customer_tier', $customer->tier ?? 'bronze')
+                           ->where('customer_tier', $customer->customer_tier ?? 'standard')
                     )
                 )
                 // Global rules
