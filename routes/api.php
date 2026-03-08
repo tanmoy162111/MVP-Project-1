@@ -6,20 +6,22 @@ use App\Modules\Vendor\Controllers\VendorController;
 use App\Modules\Product\Controllers\ProductController;
 use App\Modules\Product\Controllers\CategoryController;
 use App\Modules\Product\Controllers\BrandController;
+use App\Modules\Order\Controllers\OrderController;
+use App\Modules\Pricing\Controllers\PricingController;
 
 Route::prefix('v1')->group(function () {
 
-    Route::get('/health', function () {
-        return response()->json(['success' => true, 'message' => 'Electronics Platform API', 'version' => '1.0.0', 'timestamp' => now()->toISOString()]);
-    });
+    // ── HEALTH ────────────────────────────────────────────────────────────────
+    Route::get('/health', fn() => response()->json([
+        'success' => true, 'message' => 'Electronics Platform API',
+        'version' => '1.0.0', 'timestamp' => now()->toISOString(),
+    ]));
 
-    // Public auth
-    Route::prefix('auth')->group(function () {
-        Route::post('/register', [AuthController::class, 'register']);
-        Route::post('/login',    [AuthController::class, 'login']);
-    });
+    // ── PUBLIC: AUTH ──────────────────────────────────────────────────────────
+    Route::post('/auth/register', [AuthController::class, 'register']);
+    Route::post('/auth/login',    [AuthController::class, 'login']);
 
-    // Public storefront
+    // ── PUBLIC: STOREFRONT ────────────────────────────────────────────────────
     Route::get('/categories',      [CategoryController::class, 'index']);
     Route::get('/categories/{id}', [CategoryController::class, 'show']);
     Route::get('/brands',          [BrandController::class,    'index']);
@@ -27,7 +29,11 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/{id}',   [ProductController::class,  'show']);
     Route::get('/vendors/{id}',    [VendorController::class,   'show']);
 
-    // Authenticated
+    // ── PUBLIC: PRICING (optional auth for personalised prices) ───────────────
+    Route::get('/pricing/calculate',        [PricingController::class, 'calculate']);
+    Route::post('/pricing/calculate-batch', [PricingController::class, 'calculateBatch']);
+
+    // ── AUTHENTICATED ─────────────────────────────────────────────────────────
     Route::middleware('auth:sanctum')->group(function () {
 
         // Auth
@@ -37,49 +43,67 @@ Route::prefix('v1')->group(function () {
 
         // Vendor self-service
         Route::post('/vendor/register', [VendorController::class, 'register']);
-
         Route::middleware('role:vendor|admin|super_admin')->group(function () {
-            Route::get('/vendor/products',        [ProductController::class, 'adminIndex']);
-            Route::post('/vendor/products',       [ProductController::class, 'store']);
-            Route::put('/vendor/products/{id}',   [ProductController::class, 'update']);
-            Route::delete('/vendor/products/{id}',[ProductController::class, 'destroy']);
-        });
-
-        // Admin
-        Route::prefix('admin')->middleware('role:admin|super_admin')->group(function () {
-            Route::get('/vendors',               [VendorController::class,  'index']);
-            Route::put('/vendors/{id}',          [VendorController::class,  'update']);
-            Route::post('/vendors/{id}/approve', [VendorController::class,  'approve']);
-            Route::post('/vendors/{id}/reject',  [VendorController::class,  'reject']);
-            Route::post('/vendors/{id}/suspend', [VendorController::class,  'suspend']);
-
-            Route::get('/products',              [ProductController::class, 'adminIndex']);
-            Route::post('/products/{id}/approve',[ProductController::class, 'approve']);
-            Route::post('/products/{id}/reject', [ProductController::class, 'reject']);
-
-            Route::post('/categories',           [CategoryController::class,'store']);
-            Route::put('/categories/{id}',       [CategoryController::class,'update']);
-            Route::delete('/categories/{id}',    [CategoryController::class,'destroy']);
-
-            Route::post('/brands',               [BrandController::class,   'store']);
-            Route::put('/brands/{id}',           [BrandController::class,   'update']);
-            Route::delete('/brands/{id}',        [BrandController::class,   'destroy']);
+            Route::post('/vendor/products',        [ProductController::class, 'store']);
+            Route::put('/vendor/products/{id}',    [ProductController::class, 'update']);
+            Route::delete('/vendor/products/{id}', [ProductController::class, 'destroy']);
         });
 
         // Orders
-        Route::get('/orders',                  [\App\Modules\Order\Controllers\OrderController::class, 'index']);
-        Route::post('/orders',                 [\App\Modules\Order\Controllers\OrderController::class, 'store']);
-        Route::get('/orders/{id}',             [\App\Modules\Order\Controllers\OrderController::class, 'show']);
-        Route::post('/orders/{id}/cancel',     [\App\Modules\Order\Controllers\OrderController::class, 'cancel']);
-        Route::get('/orders/{id}/next-statuses',[\App\Modules\Order\Controllers\OrderController::class, 'nextStatuses']);
+        Route::get('/orders',                    [OrderController::class, 'index']);
+        Route::post('/orders',                   [OrderController::class, 'store']);
+        Route::get('/orders/{id}',               [OrderController::class, 'show']);
+        Route::post('/orders/{id}/cancel',       [OrderController::class, 'cancel']);
+        Route::get('/orders/{id}/next-statuses', [OrderController::class, 'nextStatuses']);
 
-        // Admin order transitions
-        Route::middleware('role:admin|super_admin|order_manager')->group(function () {
-            Route::post('/admin/orders/{id}/transition', [\App\Modules\Order\Controllers\OrderController::class, 'transition']);
+        // ── ADMIN ─────────────────────────────────────────────────────────────
+        Route::prefix('admin')->middleware('role:admin|super_admin')->group(function () {
+
+            // Vendor management
+            Route::get('/vendors',                [VendorController::class,  'index']);
+            Route::put('/vendors/{id}',           [VendorController::class,  'update']);
+            Route::post('/vendors/{id}/approve',  [VendorController::class,  'approve']);
+            Route::post('/vendors/{id}/reject',   [VendorController::class,  'reject']);
+            Route::post('/vendors/{id}/suspend',  [VendorController::class,  'suspend']);
+
+            // Product management
+            Route::get('/products',               [ProductController::class, 'adminIndex']);
+            Route::post('/products/{id}/approve', [ProductController::class, 'approve']);
+            Route::post('/products/{id}/reject',  [ProductController::class, 'reject']);
+
+            // Categories & Brands
+            Route::post('/categories',            [CategoryController::class, 'store']);
+            Route::put('/categories/{id}',        [CategoryController::class, 'update']);
+            Route::delete('/categories/{id}',     [CategoryController::class, 'destroy']);
+            Route::post('/brands',                [BrandController::class,    'store']);
+            Route::put('/brands/{id}',            [BrandController::class,    'update']);
+            Route::delete('/brands/{id}',         [BrandController::class,    'destroy']);
+
+            // Order management
+            Route::post('/orders/{id}/transition',[OrderController::class,   'transition']);
+
+            // ── PRICING (admin + pricing_manager) ─────────────────────────────
+            Route::prefix('pricing')->middleware('role:admin|super_admin|pricing_manager')->group(function () {
+                // OPIS status & refresh
+                Route::get('/opis-status',         [PricingController::class, 'opisStatus']);
+                Route::post('/opis-refresh',       [PricingController::class, 'opisRefresh']);
+
+                // Pricing rules CRUD
+                Route::get('/rules',               [PricingController::class, 'indexRules']);
+                Route::post('/rules',              [PricingController::class, 'storeRule']);
+                Route::put('/rules/{id}',          [PricingController::class, 'updateRule']);
+                Route::delete('/rules/{id}',       [PricingController::class, 'destroyRule']);
+
+                // Customer contracts CRUD
+                Route::get('/contracts',           [PricingController::class, 'indexContracts']);
+                Route::post('/contracts',          [PricingController::class, 'storeContract']);
+                Route::put('/contracts/{id}',      [PricingController::class, 'updateContract']);
+                Route::get('/contracts/{id}',      [PricingController::class, 'showContract']);
+            });
         });
 
-        // Phase 5+ stubs
-        Route::get('/invoices',  fn() => response()->json(['message' => 'Phase 5']));
-        Route::get('/reports/sales', fn() => response()->json(['message' => 'Phase 7']));
+        // ── PHASE 5+ STUBS ────────────────────────────────────────────────────
+        Route::get('/invoices',      fn() => response()->json(['message' => 'Invoice system — Phase 5']));
+        Route::get('/reports/sales', fn() => response()->json(['message' => 'Reporting — Phase 7']));
     });
 });

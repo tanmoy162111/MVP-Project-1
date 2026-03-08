@@ -1,99 +1,32 @@
 <?php
-
 namespace App\Modules\User\Models;
 
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class User extends Authenticatable
-{
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasRoles;
+class User extends Authenticatable {
+    use HasApiTokens, HasRoles, SoftDeletes, HasFactory;
 
-    protected $fillable = [
-        'name',
-        'email',
-        'phone',
-        'password',
-        'type',           // customer | vendor | admin
-        'status',         // active | suspended | pending
-        'customer_tier',  // standard | silver | gold | corporate
-        'credit_limit',
-        'credit_used',
-        'avatar',
-        'email_verified_at',
-        'last_login_at',
-    ];
+    protected $fillable = ['name','email','password','phone','company_name','type','status','customer_tier','credit_limit','credit_used','last_login_at'];
+    protected $hidden = ['password','remember_token'];
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'last_login_at'     => 'datetime',
-            'password'          => 'hashed',
-            'credit_limit'      => 'decimal:2',
-            'credit_used'       => 'decimal:2',
-        ];
+    protected function casts(): array {
+        return ['email_verified_at'=>'datetime','last_login_at'=>'datetime','credit_limit'=>'decimal:2','credit_used'=>'decimal:2'];
     }
 
-    /**
-     * Create a new factory instance for the model.
-     */
     protected static function newFactory()
     {
         return UserFactory::new();
     }
 
-    // ── RELATIONSHIPS ─────────────────────────────────────────────────────────
-
-    public function vendor(): \Illuminate\Database\Eloquent\Relations\HasOne
-    {
-        return $this->hasOne(\App\Modules\Vendor\Models\Vendor::class);
-    }
-
-    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Modules\Order\Models\Order::class, 'customer_id');
-    }
-
-    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Modules\Invoice\Models\Invoice::class, 'customer_id');
-    }
-
-    // ── HELPERS ───────────────────────────────────────────────────────────────
-
-    public function isAdmin(): bool
-    {
-        return $this->type === 'admin';
-    }
-
-    public function isVendor(): bool
-    {
-        return $this->type === 'vendor';
-    }
-
-    public function isCustomer(): bool
-    {
-        return $this->type === 'customer';
-    }
-
-    public function availableCredit(): float
-    {
-        return max(0, (float) $this->credit_limit - (float) $this->credit_used);
-    }
-
-    public function isActive(): bool
-    {
-        return $this->status === 'active';
-    }
+    public function vendor() { return $this->hasOne(\App\Modules\Vendor\Models\Vendor::class); }
+    public function availableCredit(): float { return max(0, (float)$this->credit_limit - (float)$this->credit_used); }
+    public function isActive(): bool { return $this->status === 'active'; }
+    public function isAdmin(): bool { return $this->type === 'admin'; }
+    public function isVendor(): bool { return $this->type === 'vendor'; }
+    public function isCustomer(): bool { return $this->type === 'customer'; }
 }
