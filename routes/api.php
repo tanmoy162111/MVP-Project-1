@@ -8,6 +8,7 @@ use App\Modules\Product\Controllers\CategoryController;
 use App\Modules\Product\Controllers\BrandController;
 use App\Modules\Order\Controllers\OrderController;
 use App\Modules\Pricing\Controllers\PricingController;
+use App\Modules\CRM\Controllers\CrmController;
 
 Route::prefix('v1')->group(function () {
 
@@ -100,10 +101,50 @@ Route::prefix('v1')->group(function () {
                 Route::put('/contracts/{id}',      [PricingController::class, 'updateContract']);
                 Route::get('/contracts/{id}',      [PricingController::class, 'showContract']);
             });
+
+            // ── CRM: ADMIN ──────────────────────────────────────────────────────
+            // Customer tier management
+            Route::post('/customers/{id}/evaluate-tier',                [CrmController::class, 'evaluateTier']);
+            Route::post('/customers/evaluate-all-tiers',                [CrmController::class, 'evaluateAllTiers']);
+
+            // Communication logs
+            Route::get('/customers/{id}/communications',                [CrmController::class, 'communicationIndex']);
+            Route::post('/customers/{id}/communications',               [CrmController::class, 'communicationStore']);
+            Route::patch('/customers/{customerId}/communications/{logId}/pin', [CrmController::class, 'communicationTogglePin']);
+
+            // Coupons
+            Route::get('/coupons',                                       [CrmController::class, 'couponIndex']);
+            Route::post('/coupons',                                      [CrmController::class, 'couponStore']);
+            Route::put('/coupons/{id}',                                  [CrmController::class, 'couponUpdate']);
+            Route::delete('/coupons/{id}',                               [CrmController::class, 'couponDestroy']);
+
+            // Payouts
+            Route::get('/payouts/preview',                               [CrmController::class, 'payoutPreviewAll']);
+            Route::get('/payouts',                                       [CrmController::class, 'payoutIndex']);
+            Route::post('/payouts',                                      [CrmController::class, 'payoutCreate']);
+            Route::post('/payouts/{id}/process',                         [CrmController::class, 'payoutProcess']);
+            Route::post('/payouts/{id}/complete',                        [CrmController::class, 'payoutComplete']);
         });
 
         // ── PHASE 5+ STUBS ────────────────────────────────────────────────────
         Route::get('/invoices',      fn() => response()->json(['message' => 'Invoice system — Phase 5']));
         Route::get('/reports/sales', fn() => response()->json(['message' => 'Reporting — Phase 7']));
+
+        // ── CRM: ACCOUNT ────────────────────────────────────────────────────────
+        Route::get('/account/tier',                      [CrmController::class, 'myTier']);
+        Route::get('/account/wishlist',                  [CrmController::class, 'wishlistIndex']);
+        Route::post('/account/wishlist',                 [CrmController::class, 'wishlistAdd']);
+        Route::delete('/account/wishlist/{id}',          [CrmController::class, 'wishlistRemove']);
+        Route::get('/account/notifications',             [CrmController::class, 'notificationIndex']);
+        Route::post('/account/notifications/read-all',   [CrmController::class, 'notificationReadAll']);
+        Route::patch('/account/notifications/{id}/read', [CrmController::class, 'notificationRead']);
+
+        // ── COUPONS ─────────────────────────────────────────────────────────────
+        Route::post('/coupons/validate',                 [CrmController::class, 'couponValidate']);
+
+        // ── VENDOR: PAYOUTS ─────────────────────────────────────────────────────
+        Route::middleware('role:vendor|admin|super_admin')->group(function () {
+            Route::get('/vendor/payouts',                [CrmController::class, 'vendorPayoutHistory']);
+        });
     });
 });
